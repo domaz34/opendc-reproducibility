@@ -11,12 +11,12 @@ def load_experiment_template(path):
 
 
 def save_json_file(fileinfo, filename, folder):
-    path = f"{folder}{filename}.json"
+    path = os.path.join(folder, filename)
     with open(path, "w") as f:
         json.dump(fileinfo, f, indent=4)
     return filename
 
-def save_uploaded_file(upload_widget, folder, extract_if_zip=False):
+def save_uploaded_file(upload_widget, folder):
     if not upload_widget.value:
         return None
 
@@ -29,4 +29,4 @@ def save_uploaded_file(upload_widget, folder, extract_if_zip=False):
     with open(path, "wb") as f:
         f.write(fileinfo['content'])
     
-    return fname
+    return [fname]
