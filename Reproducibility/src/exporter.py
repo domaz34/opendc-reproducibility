@@ -37,6 +37,12 @@ def collect_experiment_files(selections_list, experiments_dir="experiments"):
 
     return required_files
 
+def recursive_zip(file_path, zipf):
+    for root, _, files in os.walk(file_path):
+        for file in files:
+            full_path = os.path.join(root, file)
+            rel_path = os.path.relpath(full_path)
+            zipf.write(full_path, arcname=rel_path)
 
 def create_reproducibility_zip(queue, output_name="reproducibility_capsule.zip"):
     files_to_zip = collect_experiment_files(queue)
@@ -48,11 +54,7 @@ def create_reproducibility_zip(queue, output_name="reproducibility_capsule.zip")
         
         for file_path in files_to_zip:
             if os.path.isdir(file_path):
-                for root, _, files in os.walk(file_path):
-                    for file in files:
-                        full_path = os.path.join(root, file)
-                        rel_path = os.path.relpath(full_path)
-                        zipf.write(full_path, arcname=rel_path)
+                recursive_zip(file_path, zipf)
             elif os.path.isfile(file_path):
                 zipf.write(file_path, arcname=file_path)
 
@@ -62,11 +64,7 @@ def create_reproducibility_zip(queue, output_name="reproducibility_capsule.zip")
                 zipf.write(file, arcname=file)
 
 
-        for src in source_dirs:
-            for root, _, files in os.walk(src):
-                for file in files:
-                    full_path = os.path.join(root, file)
-                    rel_path = os.path.relpath(full_path)
-                    zipf.write(full_path, arcname=rel_path)
+        for file_path in source_dirs:
+            recursive_zip(file_path, zipf)
 
     

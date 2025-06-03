@@ -4,26 +4,11 @@ import os
 
 
 # def run_experiment(path):
-#     print("Running simulation...")
-
-#     if not os.path.exists(path):
-#         print(f"ERROR: Experiment file not found at {path}")
-#         return
-
-#     system = platform.system()
-#     if system == "Windows":
+    
 #         runner_path = os.path.abspath("OpenDCExperimentRunner/bin/OpenDCExperimentRunner.bat")
 #         command = f'"{runner_path}" --experiment-path "{path}"'
 
-#     else:
-#         runner_path = os.path.abspath("OpenDCExperimentRunner/bin/OpenDCExperimentRunner")
-#         command = [runner_path, "--experiment-path", path]
-
-#     if not os.path.exists(runner_path):
-#         print(f"ERROR: Runner not found at {runner_path}")
-#         return
-
-#     try:
+    
 #         result = subprocess.run(
 #             command,
 #             capture_output=True,
@@ -32,8 +17,7 @@ import os
 #         print("Return code:", result.returncode)
 #         print("STDOUT:\n", result.stdout)
 #         print("STDERR:\n", result.stderr)
-#     except Exception as e:
-#         print(f"Failed to run experiment: {e}")
+    
 
 def run_experiment(path):
     print("Running simulation...")
