@@ -1,14 +1,11 @@
 {
-    "clusters":
-    [
+    "clusters": [
         {
             "name": "C01",
-            "hosts" :
-            [
+            "hosts": [
                 {
                     "name": "H01",
-                    "cpu":
-                    {
+                    "cpu": {
                         "coreCount": 32,
                         "coreSpeed": 3200
                     },
@@ -20,13 +17,11 @@
         },
         {
             "name": "C02",
-            "hosts" :
-            [
+            "hosts": [
                 {
                     "name": "H02",
                     "count": 6,
-                    "cpu":
-                    {
+                    "cpu": {
                         "coreCount": 8,
                         "coreSpeed": 2930
                     },
@@ -38,13 +33,11 @@
         },
         {
             "name": "C03",
-            "hosts" :
-            [
+            "hosts": [
                 {
                     "name": "H03",
                     "count": 2,
-                    "cpu":
-                    {
+                    "cpu": {
                         "coreCount": 16,
                         "coreSpeed": 3200
                     },

@@ -1,14 +1,11 @@
 {
-    "clusters":
-    [
+    "clusters": [
         {
             "name": "C01",
-            "hosts" :
-            [
+            "hosts": [
                 {
                     "name": "H01",
-                    "cpu":
-                    {
+                    "cpu": {
                         "coreCount": 16,
                         "coreSpeed": 2100
                     },

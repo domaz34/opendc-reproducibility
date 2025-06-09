@@ -2,6 +2,7 @@ import os
 import zipfile
 import json
 
+from src.summary_generator import *
 
 def collect_experiment_files(selections_list, experiments_dir="experiments"):
     required_files = set()
@@ -20,8 +21,7 @@ def collect_experiment_files(selections_list, experiments_dir="experiments"):
         for key, folder, json_path in [
             ("topology", "topologies", "topologies"),
             ("workload", "workload_traces", "workloads"),
-            ("failures", "failure_traces", "failureModels")
-            # Carbon when figure out how     
+            ("failures", "failure_traces", "failureModels")  
         ]:
             entries = selection.get(key)
 
@@ -46,11 +46,12 @@ def recursive_zip(file_path, zipf):
 
 def create_reproducibility_zip(queue, output_name="reproducibility_capsule.zip"):
     files_to_zip = collect_experiment_files(queue)
+    readme_path = generate_readme_from_queue(queue)
 
-    static_includes = ["main.ipynb"]
-    source_dirs = ["src", "OpenDCExperimentRunner"]
+    static_includes = ["main.ipynb", readme_path]
+    source_dirs = ["src", "OpenDCExperimentRunner", "output"]
 
-    with zipfile.ZipFile(output_name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+    with zipfile.ZipFile(output_name, 'w', zipfile.ZIP_DEFLATED, allowZip64=True) as zipf:
         
         for file_path in files_to_zip:
             if os.path.isdir(file_path):
