@@ -35,6 +35,21 @@ def collect_experiment_files(selections_list, experiments_dir="experiments"):
                     if path:
                         required_files.add(path)
 
+        for topo_entry in exp_data.get("topologies", []):
+            topo_path = topo_entry.get("pathToFile")
+            if topo_path and os.path.exists(topo_path):
+                try:
+                    with open(topo_path, 'r') as f:
+                        topo_data = json.load(f)
+                        for cluster in topo_data.get("clusters", []):
+                            power_source = cluster.get("powerSource", {})
+                            trace = power_source.get("carbonTracePath")
+                            if trace and os.path.exists(trace):
+                                required_files.add(trace)
+                except Exception as e:
+                    print(f"Warning: Failed to parse topology {topo_path}: {e}")
+
+
     return required_files
 
 def recursive_zip(file_path, zipf):
