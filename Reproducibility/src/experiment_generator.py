@@ -15,77 +15,88 @@ def build_entry(folder, file, original_entry=None, default_type=None):
     return entry
 
 
-# Updates experiment fields given experiment file and dictionary of selections. 
-def update_experiment_fields(experiment, selections):
-    experiment["name"] = selections["name"]
+# Updates values of experiment by taking list of topologies, list of workloads, list of failures,  list of prefab_types, single instance of checkpoint values, a list of export model values and a list of files to export. 
+# It will create different experiment file for different export model values, if list lengths missmatch then it will just ignore the missing part
+def update_experiment_values(
+    experiment_template=None,
+    topologies=None,
+    workloads=None,
+    failures=None,
+    prefab_types=None,
+    checkpoint_interval=None,
+    checkpoint_duration=None,
+    checkpoint_scaling=None,
+    export_intervals=None,
+    print_frequencies=None,
+    files_to_export=None,
+    name=None,
+    seeds=None,
+    runs=None
+):
+    if experiment_template:
+        try:
+            with open(f"templates/experiments/{experiment_template}", 'r') as f:
+                base_experiment = json.load(f)
+        except Exception as e:
+            print(f"Failed to load base experiment: {e}")
+            return
+    else:
+        base_experiment = {}
     
+    base_name = name or base_experiment.get("name", "custom_experiment")
+
     # Topologies: no default type  
-    if selections.get("topology") is not None:
-        original_entries = experiment.get("topologies", [])
-        experiment["topologies"] = [
+    if topologies is not None:
+        original_entries = base_experiment.get("topologies", [])
+        base_experiment["topologies"] = [
             build_entry("topologies", file, original_entries[index] if index < len(original_entries) else None)
-            for index, file in enumerate(selections["topology"])
+            for index, file in enumerate(topologies)
         ]
     
     # Workloads: default to ComputeWorkload
-    if selections.get("workload") is not None:
-        original_entries = experiment.get("workloads", [])
-        experiment["workloads"] = [
+    if workloads is not None:
+        original_entries = base_experiment.get("workloads", [])
+        base_experiment["workloads"] = [
             build_entry("workload_traces", file, original_entries[index] if index < len(original_entries) else None, "ComputeWorkload")
-            for index, file in enumerate(selections["workload"])
+            for index, file in enumerate(workloads)
         ]
 
     # Failures: default to trace-based
-    if selections.get("failures") is not None:
-        original_entries = experiment.get("failureModels", [])
-        experiment["failureModels"] = [
+    if failures is not None:
+        original_entries = base_experiment.get("failureModels", [])
+        base_experiment["failureModels"] = [
             build_entry("failure_traces", file, original_entries[index] if index < len(original_entries) else None, "trace-based")
-            for index, file in enumerate(selections["failures"])
+            for index, file in enumerate(failures)
         ]
 
+    max_length = max(
+        len(seeds or []),
+        len(runs or []),
+        len(export_intervals or []),
+        len(print_frequencies or []),
+        1
+    )
 
-    return experiment
-
-#Updates values of experiment by taking list of prefab dictionaries, dictionary of checkpoint values and dictionary for export model values. 
-# It will create different experiment file for different carbon trace, if list lengths missmatch then it will just ignore the missing part
-def update_experiment_values(prefabs, checkpoint, export_model, name, experiment):
-    try:
-        with open(f"experiments/{experiment}", 'r') as f:
-            base_experiment = json.load(f)
-    except Exception as e:
-        print(f"Failed to load base experiment: {e}")
-        return
-
-    seeds = export_model.get("initialSeed", [])
-    runs = export_model.get("numberRuns", [])
-    intervals = export_model.get("exportInterval", [])
-    frequencies = export_model.get("printFrequency", [])
-
-    max_length = max(len(seeds), len(runs), len(intervals), len(frequencies), 1)
-
-    print(max_length)
     for i in range(max_length):
         experiment = json.loads(json.dumps(base_experiment))
 
         seed = get_val(seeds, i)
         run = get_val(runs, i)
-        experiment["name"] = f"{name}_s{seed}_r{run}"
 
-        if seed:
-            experiment["seed"] = seed
-            name = f"s{seed}_{name}"
+        full_name = f"{base_name}"
+        if seed is not None:
+            full_name += f"_s{seed}"
+            experiment["initialSeed"] = int(seed)
+        if run is not None:
+            full_name += f"_r{run}"
+            experiment["runs"] = int(run)
 
-        if run:
-            experiment["runs"] = run
-            name = f"r{run}_{name}"
+        experiment["name"] = full_name
 
         policies = []
 
-        for idx in range(len(prefabs["type"])):
-            policy_type = get_val(prefabs["type"], idx)
-            filters = get_val(prefabs["filters"], idx)
-            weighers = get_val(prefabs["weighers"], idx)
-            
+        for idx in range(len(prefab_types or [])):
+            policy_type = get_val(prefab_types, idx)
             
             if policy_type:
                 policy = {
@@ -93,62 +104,49 @@ def update_experiment_values(prefabs, checkpoint, export_model, name, experiment
                     "policyName": policy_type
                 }
 
-                if filters:
-                    policy["filters"] = []
-                    for f_type, ratio in filters:
-                        entry = {"type": f_type}
-                        if ratio is not None:
-                            entry["allocationRatio"] = float(ratio)
-                        policy["filters"].append(entry)
-
-                if weighers:
-                    policy["weighers"] = []
-                    for weigher in weighers:
-                        if weigher:
-                            w_type, multiplier = weigher
-                            policy["weighers"].append({
-                                "type": w_type,
-                                "multiplier": float(multiplier)
-                            })
-
-                policies.append(policy)
+            policies.append(policy)
         
         if policies:
             experiment["allocationPolicies"] = policies
 
-        
-        if checkpoint:
-            interval = get_val(checkpoint.get("checkpointInterval", []), i)
-            duration = get_val(checkpoint.get("checkpointDuration", []), i)
-            scaling = get_val(checkpoint.get("checkpointIntervalScaling", []), i)
+    
+        if checkpoint_interval is not None and checkpoint_duration is not None and checkpoint_scaling is not None:
+            experiment["checkpointModels"] = [{
+                "checkpointInterval": int(checkpoint_interval),
+                "checkpointDuration": int(checkpoint_duration),
+                "checkpointIntervalScaling": float(checkpoint_scaling)
+            }]
 
-            if interval is not None and duration is not None and scaling is not None:
-                experiment["checkpointModels"] = [{
-                    "checkpointInterval": int(interval),
-                    "checkpointDuration": int(duration),
-                    "checkpointIntervalScaling": float(scaling)
-                }]
 
-       
-        interval = get_val(intervals, i)
-        frequency = get_val(frequencies, i)
+        interval = get_val(export_intervals, i)
+        freq = get_val(print_frequencies, i)
 
         if "exportModels" in experiment and experiment["exportModels"]:
             if interval is not None:
                 experiment["exportModels"][0]["exportInterval"] = int(interval)
-            if frequency is not None:
-                experiment["exportModels"][0]["printFrequency"] = int(frequency)
+            if freq is not None:
+                experiment["exportModels"][0]["printFrequency"] = int(freq)
+            if files_to_export:
+                experiment["exportModels"][0]["filesToExport"] = files_to_export
        
         else:
             export_entry = {}
             if interval is not None:
                 export_entry["exportInterval"] = int(interval)
-            if frequency is not None:
-                export_entry["printFrequency"] = int(frequency)
+            if freq is not None:
+                export_entry["printFrequency"] = int(freq)
+            if files_to_export:
+                export_entry["filesToExport"] = files_to_export
             if export_entry:
                 experiment["exportModels"] = [export_entry]
         
-        save_experiment(experiment, name)
+
+        filename = f"{full_name}.json" if not full_name.endswith(".json") else full_name
+
+        save_experiment(experiment, filename)
+
+        return filename
+
 
 def save_experiment(experiment, new_name):
 

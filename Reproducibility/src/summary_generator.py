@@ -1,8 +1,19 @@
 
 import os
 import json
+import datetime as dt
 
-def generate_readme_from_queue(experiment_queue, output_path="README.md", experiments_dir="experiments"):
+# Update this section if capsule version or OpenDC version changes
+def generate_metadata_section():
+    return [
+        "## Capsule Metadata",
+        f"- **Created on**: {dt.datetime.now().strftime('%Y-%m-%d')}",
+        "- **OpenDC Version**: 2.4e",
+        "- **Capsule Tool Version**: 1.0.0",
+        ""
+    ]
+
+def generate_readme_from_queue(experiment_queue, stats, output_path="README.md", experiments_dir="experiments"):
     readme_lines = [
         "# Reproducibility Capsule",
         "",
@@ -11,6 +22,8 @@ def generate_readme_from_queue(experiment_queue, output_path="README.md", experi
         "## Experiments Overview",
         ""
     ]
+
+    readme_lines += generate_metadata_section()
 
     for i, exp in enumerate(experiment_queue, start=1):
         name = exp["name"]
@@ -36,12 +49,40 @@ def generate_readme_from_queue(experiment_queue, output_path="README.md", experi
             readme_lines.append("- **Failures**: " + ", ".join(failures) if failures else "- **Failures**: []")
         readme_lines.append("")
 
+
+    readme_lines += [
+        "## Execution Time per Experiment",
+        "",
+        "| Experiment | Duration (seconds) |",
+        "|------------|--------------------|"
+    ]
+    for exp_stat in stats.get("experiments", []):
+        name = exp_stat.get("name", "unknown")
+        duration = exp_stat.get("duration_sec", "N/A")
+        readme_lines.append(f"| {name} | {duration} |")
+
+
+    sysinfo = stats.get("system_info", {})
+    readme_lines += [
+        "",
+        "Experiments were executed on the following system, we recommend to have at least these specifications when rerunning the experiments",
+        "",
+        "## System Information",
+        "",
+        f"- **Machine**: {sysinfo.get('machine', 'N/A')}",
+        f"- **Processor**: {sysinfo.get('processor', 'N/A')}",
+        f"- **Cores**: {sysinfo.get('cores', 'N/A')}",
+        f"- **Threads**: {sysinfo.get('threads', 'N/A')}",
+        f"- **Memory**: {sysinfo.get('memory_gb', 'N/A')} GB",
+        f"- **Platform**: {sysinfo.get('platform', 'N/A')}",
+    ]
+
     readme_lines += [
         "## How to Run",
-        "",
-        "1. Open `main.ipynb` in a Jupyter environment.",
-        "2. Click **'Run All Experiments'** to execute everything in the queue.",
-        "3. Outputs will appear in the `output/` directory.",
+        "1. Make sure to have Java 21 and Jupyter Notebooks installed",
+        "2. Open `main.ipynb` in a Jupyter environment.",
+        "3. Click **'Run All Experiments'** to execute everything in the queue.",
+        "4. Outputs will appear in the `output/` directory.",
         "",
         "You can also customize and build on top of the experiments provided using the same notebook and following the instructions.",
         "",
@@ -57,6 +98,8 @@ def generate_readme_from_queue(experiment_queue, output_path="README.md", experi
         "- `OpenDCExperimentRunner/`: Compiled experiment runner.",
         ""
     ]
+
+
 
     try:
         with open(output_path, "w") as f:

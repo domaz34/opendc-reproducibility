@@ -59,9 +59,9 @@ def recursive_zip(file_path, zipf):
             rel_path = os.path.relpath(full_path)
             zipf.write(full_path, arcname=rel_path)
 
-def create_reproducibility_zip(queue, output_name="reproducibility_capsule.zip"):
+def create_reproducibility_zip(queue, readme_path="README.md", output_name="reproducibility_capsule.zip"):
     files_to_zip = collect_experiment_files(queue)
-    readme_path = generate_readme_from_queue(queue)
+    
 
     static_includes = ["main.ipynb", readme_path]
     source_dirs = ["src", "OpenDCExperimentRunner", "output"]
@@ -84,3 +84,22 @@ def create_reproducibility_zip(queue, output_name="reproducibility_capsule.zip")
             recursive_zip(file_path, zipf)
 
     
+def quick_export_all_zip(output_name="reproducibility_capsule.zip"):
+
+    roots = [
+        "experiments", "README.md",
+        "topologies", "workload_traces", "failure_traces",
+        "output", "src", "OpenDCExperimentRunner",
+        "main.ipynb"
+    ]
+
+    with zipfile.ZipFile(output_name, "w", zipfile.ZIP_STORED) as z:
+        for path in roots:
+            if os.path.isfile(path):
+                z.write(path, arcname=path)
+            elif os.path.isdir(path):
+                for root, _, files in os.walk(path):
+                    for f in files:
+                        full = os.path.join(root, f)
+                        z.write(full, arcname=full)
+

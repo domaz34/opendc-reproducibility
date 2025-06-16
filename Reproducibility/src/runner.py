@@ -1,6 +1,7 @@
 import os
 import sys
 import subprocess
+import time
 
 def run_experiment(path):
     print("Running simulation...")
@@ -55,14 +56,24 @@ def run_all_experiments(experiment_queue):
         return
         
     print("Running all queued experiments...")
-            
+    
+    experiment_times = []
+
     for exp in experiment_queue:
                 
         filename = exp["name"]
         print(f"Running: {filename}")
         exec_path = f"experiments/{filename}"
+        start_time = time.time()
         run_experiment(exec_path)
+        duration = time.time() - start_time
+
+        experiment_times.append({
+            "name": filename,
+            "duration_sec": round(duration, 2) if duration else None
+        })
 
 
     experiment_queue.clear()
     print("All experiments completed.")
+    return experiment_times

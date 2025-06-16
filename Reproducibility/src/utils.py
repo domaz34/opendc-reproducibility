@@ -1,6 +1,8 @@
 import os
 import json
-
+import platform
+import psutil
+import socket
 
 # Cleans the selection list by adding all selections or keeping the original selections based on the user selected values
 def clean_selection(selections, full_options):
@@ -58,6 +60,15 @@ def parse_input(input_str):
         except ValueError:
             return []
 
+def list_topology_files(root="topologies"):
+    topo_files = []
+    for dirpath, _, filenames in os.walk(root):
+        for fn in filenames:
+            if fn.endswith(".json"):
+                rel = os.path.relpath(os.path.join(dirpath, fn), root)
+                topo_files.append(rel)
+    return topo_files
+
 # Function to create a list from range
 def frange(start, end, step):
     result = []
@@ -67,6 +78,20 @@ def frange(start, end, step):
         current += step
     return result
 
-#Lists directory only if it exists
+# Lists directory only if it exists
 def safe_listdir(path):
     return os.listdir(path) if os.path.exists(path) else []
+
+# Gets system info for readme
+def get_system_info():
+    cpu_info = {
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "cores": psutil.cpu_count(logical=False),
+        "threads": psutil.cpu_count(logical=True),
+        "memory_gb": round(psutil.virtual_memory().total / (1024 ** 3), 2),
+        "hostname": socket.gethostname(),
+        "platform": platform.platform(),
+    }
+
+    return cpu_info
