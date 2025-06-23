@@ -7,7 +7,6 @@ def update_topology_values(
     core_count_list=None, 
     core_speed_list=None, 
     memory_size_list=None,
-    multiple_clusters=False,
     carbon_list=None,
     NoH_list=None,
     battery_capacity_list=None,
@@ -51,10 +50,6 @@ def update_topology_values(
             len(battery_capacity_list), len(starting_CI_list), len(charging_speed_list),
             1
         )    
-
-    # if multiple_clusters:
-    #     for i in max_len:
-    #         new_topology["clusters"].append(create_new_cluster(None, None, None, None, i))
     
     for i in range(max_len):
         new_topology = json.loads(json.dumps(original_topology))
@@ -97,6 +92,7 @@ def update_topology_values(
                         host["memory"]["memorySize"] = int(memory_size)
                     if NoH is not None:
                         host["count"] = int(NoH)
+
                     if power_model_type is not None:
                         power_model = {"modelType": power_model_type}
 
@@ -124,7 +120,6 @@ def update_topology_values(
         save_topology(new_topology, path)
   
         
-
 # Function that is responsible for naming, feel free to adjust based on your taste
 def build_topology_path(
     carbon,
@@ -162,92 +157,6 @@ def build_topology_path(
     fname = "_".join(feature_bits) + f"_{default_name}" if feature_bits else default_name
 
     return "/".join(path_parts + [fname])
-
-def update_topology_values_old(
-    topology_file, 
-    core_count_list, 
-    core_speed_list, 
-    memory_size_list, 
-    host_count_list,
-    apply_to_multiple_clusters
-):
-
-    topology_path = f"topologies/{topology_file}"
-
-    try:
-        with open(topology_path, 'r') as f:
-            original_topology = json.load(f)
-    except Exception as e:
-        print(f"Failed to load topology {topology_file}: {e}")
-        return
-    
-
-    max_len = max()
-
-    if apply_to_multiple_clusters:
-        new_topology = json.loads(json.dumps(original_topology))
-
-        for i in range(max_len):
-            core_count = get_val(core_count_list, i)
-            core_speed = get_val(core_speed_list, i)
-            memory_size = get_val(memory_size_list, i)
-            host_count = get_val(host_count_list, i) 
-
-            if i < len(new_topology["clusters"]):
-                cluster = new_topology["clusters"][i]
-            else:
-                cluster = create_new_cluster(core_count, core_speed, memory_size, host_count, i)
-
-            
-            if core_count is not None:
-                    cluster["hosts"][0]["cpu"]["coreCount"] = int(core_count) 
-            if core_speed is not None:
-                cluster["hosts"][0]["cpu"]["coreSpeed"] = int(core_speed)
-            if memory_size is not None:
-                cluster["hosts"][0]["memory"]["memorySize"] = int(memory_size)
-            if host_count is not None: 
-                cluster["hosts"][0]["count"] = int(host_count)
-
-            if i >= len(new_topology["clusters"]):
-                new_topology["clusters"].append(cluster)
-
-        base_topo = os.path.splitext(topology_file)[0]
-        new_name = f"{base_topo}_multiple_clusters.json"
-        save_topology(new_topology, new_name)
-
-    
-    else:
-        
-        for i in range(max_len):
-            new_topology = json.loads(json.dumps(original_topology))
-
-            core_count = get_val(core_count_list, i)
-            core_speed = get_val(core_speed_list, i)
-            memory_size = get_val(memory_size_list, i)
-            host_count = get_val(host_count_list, i)  
-
-            if "clusters" in new_topology:
-                cluster = new_topology["clusters"][0]
-                if core_count is not None:
-                    cluster["hosts"][0]["cpu"]["coreCount"] = core_count 
-                if core_speed is not None:
-                    cluster["hosts"][0]["cpu"]["coreSpeed"] = core_speed 
-                if memory_size is not None:
-                    cluster["hosts"][0]["memory"]["memorySize"] = memory_size
-                if host_count is not None: 
-                    cluster["hosts"][0]["count"] = host_count
-                
-            else:
-                new_topology["clusters"] = [create_new_cluster(core_count, core_speed, memory_size, host_count, i)]
-
-            base_topo = os.path.splitext(topology_file)[0]
-            cores_str = f"coreCount{core_count}_" if core_count is not None else ""
-            speed_str = f"coreSpeed{core_speed}_" if core_speed is not None else ""
-            memory_str = f"memSize{memory_size}_" if memory_size is not None else ""
-            hosts_str = f"hosts{host_count}" if host_count is not None else ""
-
-            new_name = f"{base_topo}_{cores_str}{speed_str}{memory_str}{hosts_str}.json"
-            save_topology(new_topology, new_name)
 
 
 # Creates a cluster with one host, could be further extended later based on specific topologies
