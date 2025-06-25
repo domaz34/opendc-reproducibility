@@ -1,4 +1,6 @@
 from src.utils import *
+from itertools import product
+
 
 # Updates topology carbon field and batery field by taking a base topology, a list of carbons, number of hosts, lists of battery capacity and et.
 # It will create different topology file for different carbon trace, if list lengths missmatch then it will just ignore the missing part
@@ -17,11 +19,12 @@ def update_topology_values(
     power_model_type=None,
     power_model_idle=None,
     power_model_max=None,
-    power_model_power=None
+    power_model_power=None,
+    add_power_model=False,
+    generate_combinations=False
 ):
     if topology_file:
         topology_path = f"templates/topologies/{topology_file}"
-        
         try:
             with open(topology_path, 'r') as f:
                 original_topology = json.load(f)
@@ -30,10 +33,9 @@ def update_topology_values(
             return
     else:
         original_topology = {
-                "clusters": [create_new_cluster(16, 2100,
-                                               100000, 1, 0)]
-            }
-        
+            "clusters": [create_new_cluster(16, 2100, 100000, 1, 0)]
+        }
+
     
     carbon_list = carbon_list or []
     NoH_list = NoH_list or []
@@ -43,27 +45,101 @@ def update_topology_values(
     core_count_list = core_count_list or []
     core_speed_list = core_speed_list or []
     memory_size_list = memory_size_list or []
-    
-    max_len = max(
+
+    if generate_combinations:
+        inputs = {
+            "carbon": carbon_list,
+            "NoH": NoH_list,
+            "battery_capacity": battery_capacity_list,
+            "starting_CI": starting_CI_list,
+            "charging_speed": charging_speed_list,
+            "core_count": core_count_list,
+            "core_speed": core_speed_list,
+            "memory_size": memory_size_list
+        }
+
+        active = {key: value for key, value in inputs.items() if value}
+
+        keys, lists = zip(*active.items())
+
+        seen = set()
+        for combo in product(*lists):
+            if None in combo:
+                continue
+            if combo in seen:
+                continue
+            seen.add(combo)
+        
+            values = dict(zip(keys, combo))
+
+            new_topology = json.loads(json.dumps(original_topology))
+            build_one_topology(
+                new_topology=new_topology,
+                core_count=values.get("core_count"),
+                core_speed=values.get("core_speed"),
+                memory_size=values.get("memory_size"),
+                carbon=values.get("carbon"),
+                NoH=values.get("NoH"),
+                battery_capacity=values.get("battery_capacity"),
+                starting_CI=values.get("starting_CI"),
+                charging_speed=values.get("charging_speed"),
+                include_battery=include_battery,
+                name=name,
+                power_model_type=power_model_type,
+                power_model_idle=power_model_idle,
+                power_model_max=power_model_max,
+                power_model_power=power_model_power,
+                add_power_model=add_power_model
+            )
+
+    else:
+        max_len = max(
             len(core_count_list), len(core_speed_list), len(memory_size_list),
             len(carbon_list), len(NoH_list),
             len(battery_capacity_list), len(starting_CI_list), len(charging_speed_list),
             1
-        )    
-    
-    for i in range(max_len):
-        new_topology = json.loads(json.dumps(original_topology))
+        )
 
-        core_count = get_val(core_count_list, i)
-        core_speed = get_val(core_speed_list, i)
-        memory_size = get_val(memory_size_list, i)
-        NoH = get_val(NoH_list, i)
-        carbon = get_val(carbon_list, i)
-        battery_capacity = get_val(battery_capacity_list, i)
-        starting_CI = get_val(starting_CI_list, i)
-        charging_speed = get_val(charging_speed_list, i)
+        for i in range(max_len):
+            core_count = get_val(core_count_list, i)
+            core_speed = get_val(core_speed_list, i)
+            memory_size = get_val(memory_size_list, i)
+            NoH = get_val(NoH_list, i)
+            carbon = get_val(carbon_list, i)
+            battery_capacity = get_val(battery_capacity_list, i)
+            starting_CI = get_val(starting_CI_list, i)
+            charging_speed = get_val(charging_speed_list, i)
+
+            new_topology = json.loads(json.dumps(original_topology))
+            build_one_topology(
+                new_topology=new_topology,
+                core_count=core_count,
+                core_speed=core_speed,
+                memory_size=memory_size,
+                carbon=carbon,
+                NoH=NoH,
+                battery_capacity=battery_capacity,
+                starting_CI=starting_CI,
+                charging_speed=charging_speed,
+                include_battery=include_battery,
+                name=name,
+                power_model_type=power_model_type,
+                power_model_idle=power_model_idle,
+                power_model_max=power_model_max,
+                power_model_power=power_model_power,
+                add_power_model=add_power_model
+            )
+
         
-        if "clusters" in new_topology:
+def build_one_topology(new_topology,
+                        core_count, core_speed, memory_size,
+                        carbon, NoH,
+                        battery_capacity, starting_CI, charging_speed,
+                        include_battery, name,
+                        power_model_type, power_model_idle,
+                        power_model_max, power_model_power, add_power_model):
+    
+    if "clusters" in new_topology:
             for cluster in new_topology["clusters"]:
                 if carbon:
                     cluster["powerSource"] = {
@@ -93,22 +169,24 @@ def update_topology_values(
                     if NoH is not None:
                         host["count"] = int(NoH)
 
-                    if power_model_type is not None:
-                        power_model = {"modelType": power_model_type}
+                    if add_power_model:
+                        if power_model_type is not None:
+                            power_model = {"modelType": power_model_type}
 
-                        if power_model_power is not None:
-                            power_model["power"] = float(power_model_power)
-                        if power_model_idle is not None:
-                            power_model["idlePower"] = float(power_model_idle)
-                        if power_model_max:
-                            power_model["maxPower"] = float(power_model_max)
-                        
-                        host["powerModel"] = power_model
+                            if power_model_power is not None:
+                                power_model["power"] = float(power_model_power)
+                            if power_model_idle is not None:
+                                power_model["idlePower"] = float(power_model_idle)
+                            if power_model_max:
+                                power_model["maxPower"] = float(power_model_max)
+                            
+                            host["powerModel"] = power_model
 
         
-        path = build_topology_path(carbon = carbon,
+    path = build_topology_path(carbon = carbon,
                                     NoH = NoH,
                                     battery_capacity = battery_capacity,
+                                    charging_speed=charging_speed,
                                     include_battery = include_battery,
                                     core_count = core_count,
                                     core_speed = core_speed,
@@ -117,7 +195,7 @@ def update_topology_values(
                                 )
                                                 
 
-        save_topology(new_topology, path)
+    save_topology(new_topology, path)
   
         
 # Function that is responsible for naming, feel free to adjust based on your taste
@@ -125,6 +203,7 @@ def build_topology_path(
     carbon,
     NoH,
     battery_capacity,
+    charging_speed,
     include_battery,
     core_count,
     core_speed,
@@ -133,13 +212,14 @@ def build_topology_path(
 ):
     # Folder structure
     path_parts = []
-    if carbon:
-        path_parts.append(f"carbon-{os.path.splitext(carbon)[0]}")
     if NoH is not None:
         path_parts.append(f"hosts{NoH}")
-    if include_battery and battery_capacity is not None:
-        path_parts.append(f"bat{battery_capacity}")
-
+    if include_battery and battery_capacity is not None and charging_speed is not None:
+        path_parts.append(f"bat{battery_capacity}_{charging_speed}")
+    if carbon:
+        path_parts.append(f"carbon-{os.path.splitext(carbon)[0]}")
+    
+    
     # Filename
     feature_bits = []
     if core_count is not None:

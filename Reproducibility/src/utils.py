@@ -9,11 +9,14 @@ def clean_selection(selections, full_options):
     if not selections:
         return None
 
-    if "[Select All]" in selections:
-        return [opt for opt in full_options if opt not in ("[Keep original]", "[Select All]")]
+    def is_valid(opt):
+        return opt not in ("[Keep original]", "[Select All]") and not opt.endswith(".gitkeep")
 
-    filtered = [s for s in selections if s not in ("[Keep original]", "[Select All]")]
-    return filtered if filtered else None   
+    if "[Select All]" in selections:
+        return [opt for opt in full_options if is_valid(opt)]
+
+    filtered = [s for s in selections if is_valid(s)]
+    return filtered if filtered else None
 
 
 # Refreshes the dropdown menu after file has been uploaded, currently used for experiment file update
@@ -27,38 +30,29 @@ def refresh_dropdown(dropdown, folder, selected=None, keep_original=True):
 def get_val(lst, idx):
     return lst[idx] if idx < len(lst) else None
 
-# Helper function to parse input as a number, list, range
+# Helper function to parse input as a number, list, range, returns string and the casting is done later where convenient
 def parse_input(input_str):
     input_str = input_str.strip()
     if not input_str:
         return []
-    
-    if '-' in input_str and ':' in input_str:
-        try:
-            start_end, step = input_str.split(':')
-            start, end = start_end.split('-')
-            start, end, step = int(start), int(end), int(step)
-            return frange(start, end, step)
-        except Exception:
-            return []
-    
 
-    elif ',' in input_str:
-        parts = input_str.split(',')
-        result = []
-        for p in parts:
-            p = p.strip()
-            try:
-                result.append(p)
-            except ValueError:
-                pass
-        return result
-    
-    else:
-        try:
-            return [input_str]
-        except ValueError:
-            return []
+    segments = [s.strip() for s in input_str.split('+')]
+    result = []
+
+    for segment in segments:
+        if '-' in segment and ':' in segment:
+            start_end, step = segment.split(':')
+            start, end = start_end.split('-')
+            result += [str(v) for v in frange(int(start), int(end), int(step))]
+
+        elif ',' in segment:
+            result += [s.strip() for s in segment.split(',')]
+
+        else:
+            result.append(segment)
+
+    return result
+
 
 def list_topology_files(root="topologies"):
     topo_files = []
