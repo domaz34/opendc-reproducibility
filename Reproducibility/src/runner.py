@@ -4,6 +4,16 @@ import subprocess
 import time
 
 def run_experiment(path):
+    """
+    Executes a single OpenDC experiment.
+
+    Detects platform (Windows or Linux) and invokes the appropriate runner.
+    Prints output and any errors encountered.
+
+    Args:
+        path: Path to the experiment JSON file.
+    """
+
     print("Running simulation...")
 
     if not os.path.exists(path):
@@ -51,6 +61,19 @@ def run_experiment(path):
         print("ERROR: Unsupported OS. This runner supports Windows and Linux")
 
 def run_all_experiments(experiment_queue):
+
+    """
+    Runs all experiments in the queue sequentially and measures execution time.
+
+    Clears the queue after execution and returns timing stats.
+
+    Args:
+        experiment_queue: List of queued experiments.
+
+    Returns:
+        A list of dictionaries with experiment names and execution durations.
+    """
+    
     if not experiment_queue:
         print("No experiments added")
         return

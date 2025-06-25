@@ -1,9 +1,8 @@
 from src.utils import *
 from itertools import product
+import json
 
 
-# Updates topology carbon field and batery field by taking a base topology, a list of carbons, number of hosts, lists of battery capacity and et.
-# It will create different topology file for different carbon trace, if list lengths missmatch then it will just ignore the missing part
 def update_topology_values(
     topology_file=None,
     core_count_list=None, 
@@ -14,6 +13,7 @@ def update_topology_values(
     battery_capacity_list=None,
     starting_CI_list=None,
     charging_speed_list=None,
+    expected_lifetime_list=None,
     include_battery=False,
     name=None,
     power_model_type=None,
@@ -23,6 +23,22 @@ def update_topology_values(
     add_power_model=False,
     generate_combinations=False
 ):
+    """
+    Generate and save new topology files based on provided variations.
+
+    If a topology file is provided, it is used as the base template. Otherwise,
+    a default one-cluster topology is generated. New topologies are created by 
+    iterating over the provided lists or by generating combinations if enabled.
+
+    - If generate_combinations is True, creates a topology for each unique combination.
+    - If False, aligns values by index across lists.
+    - Only non-empty inputs are used in combination generation.
+    - Carbon traces and battery configs are added to clusters if provided.
+    - Power model is added to hosts if enabled.
+
+    Saves each generated topology under a structured path reflecting its parameters.
+    """
+
     if topology_file:
         topology_path = f"templates/topologies/{topology_file}"
         try:
@@ -42,6 +58,7 @@ def update_topology_values(
     battery_capacity_list = battery_capacity_list or []
     starting_CI_list = starting_CI_list or []
     charging_speed_list = charging_speed_list or []
+    expected_lifetime_list = expected_lifetime_list or []
     core_count_list = core_count_list or []
     core_speed_list = core_speed_list or []
     memory_size_list = memory_size_list or []
@@ -53,6 +70,7 @@ def update_topology_values(
             "battery_capacity": battery_capacity_list,
             "starting_CI": starting_CI_list,
             "charging_speed": charging_speed_list,
+            "expected_lifetime": expected_lifetime_list,
             "core_count": core_count_list,
             "core_speed": core_speed_list,
             "memory_size": memory_size_list
@@ -83,6 +101,7 @@ def update_topology_values(
                 battery_capacity=values.get("battery_capacity"),
                 starting_CI=values.get("starting_CI"),
                 charging_speed=values.get("charging_speed"),
+                expected_lifetime=values.get("expected_lifetime"),
                 include_battery=include_battery,
                 name=name,
                 power_model_type=power_model_type,
@@ -109,6 +128,7 @@ def update_topology_values(
             battery_capacity = get_val(battery_capacity_list, i)
             starting_CI = get_val(starting_CI_list, i)
             charging_speed = get_val(charging_speed_list, i)
+            expected_lifetime = get_val(expected_lifetime_list, i)
 
             new_topology = json.loads(json.dumps(original_topology))
             build_one_topology(
@@ -121,6 +141,7 @@ def update_topology_values(
                 battery_capacity=battery_capacity,
                 starting_CI=starting_CI,
                 charging_speed=charging_speed,
+                expected_lifetime=expected_lifetime,
                 include_battery=include_battery,
                 name=name,
                 power_model_type=power_model_type,
@@ -134,10 +155,18 @@ def update_topology_values(
 def build_one_topology(new_topology,
                         core_count, core_speed, memory_size,
                         carbon, NoH,
-                        battery_capacity, starting_CI, charging_speed,
+                        battery_capacity, starting_CI, charging_speed, expected_lifetime,
                         include_battery, name,
                         power_model_type, power_model_idle,
                         power_model_max, power_model_power, add_power_model):
+    
+    """
+    Populate and save a single topology configuration based on inputs.
+
+    Applies cluster-level and host-level settings including carbon trace, battery,
+    power model, and compute specs. Naming is handled automatically.
+
+    """
     
     if "clusters" in new_topology:
             for cluster in new_topology["clusters"]:
@@ -148,16 +177,18 @@ def build_one_topology(new_topology,
                 
                 if include_battery and battery_capacity is not None and starting_CI is not None and float(starting_CI) > 0:
                     cluster["battery"] = {
-                    "capacity": int(battery_capacity),
-                    "chargingSpeed": int(charging_speed) * int(battery_capacity) if charging_speed else 0,
-                    "embodiedCarbon": 100 * int(battery_capacity),
-                    "expectedLifetime": 10,
-                    "batteryPolicy": {
-                        "type": "runningMeanPlus",
-                        "startingThreshold": float(starting_CI),
-                        "windowSize": 168
-                        }
+                        "capacity": int(battery_capacity),
+                        "chargingSpeed": int(charging_speed) * int(battery_capacity) if charging_speed else 0,
+                        "embodiedCarbon": 100 * int(battery_capacity),
+                        "expectedLifetime": int(expected_lifetime) if int(expected_lifetime) is not None else 10
                     }
+
+                    if "batteryPolicy" not in cluster["battery"]:
+                        cluster["battery"]["batteryPolicy"] = {
+                            "type": "runningMeanPlus",
+                            "startingThreshold": float(starting_CI),
+                            "windowSize": 168
+                        }
 
                 for host in cluster.get("hosts", []):
                     if core_count is not None:
@@ -198,7 +229,7 @@ def build_one_topology(new_topology,
     save_topology(new_topology, path)
   
         
-# Function that is responsible for naming, feel free to adjust based on your taste
+
 def build_topology_path(
     carbon,
     NoH,
@@ -210,6 +241,18 @@ def build_topology_path(
     memory_size,
     name
 ):
+    
+    """
+    Construct a relative file path for a generated topology file.
+
+    Path is built using the most relevant features (e.g. NoH, battery, carbon, CPU settings).
+    File name is composed using name and other hardware specs.
+    Feel free to adjust to your taste.
+
+    Returns:
+        Relative file path to use when saving the topology.
+    """
+
     # Folder structure
     path_parts = []
     if NoH is not None:
@@ -239,8 +282,15 @@ def build_topology_path(
     return "/".join(path_parts + [fname])
 
 
-# Creates a cluster with one host, could be further extended later based on specific topologies
+
 def create_new_cluster(core_count, core_speed, memory_size, host_count, index): 
+    """
+    Create a default cluster with a single host entry.
+
+    Returns:
+        A cluster dictionary structure to be included in the topology.
+    """
+
     return {
         "name": f"C{index}",
         "hosts": [
@@ -258,8 +308,15 @@ def create_new_cluster(core_count, core_speed, memory_size, host_count, index):
         ]
     }
 
-# Saves topology on provided path
+
 def save_topology(topology: dict, rel_path: str):
+
+    """
+    Save a topology dictionary to disk under the topologies/ directory.
+
+    Creates subfolders as necessary.
+    """
+    
     full_path = f"topologies/{rel_path}"
     os.makedirs(os.path.dirname(full_path), exist_ok=True)  
     with open(full_path, "w", encoding="utf-8") as f:

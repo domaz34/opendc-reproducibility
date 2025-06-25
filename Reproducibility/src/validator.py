@@ -2,9 +2,21 @@ import os
 import json
 import pandas as pd
 
-# Checks whether topologies, workloads and failure models exist in the experiment file 
-# Can later be extended to support more robust validation
+
 def validate_experiments(experiment_queue):
+    """
+    Checks whether topologies, workloads, and failure models exist in each experiment file.
+
+    Loops over all experiments in the queue and verifies that all referenced files exist.
+    Can be extended for more robust validation in the future.
+
+    Args:
+        experiment_queue: List of experiment metadata dicts with 'name' field.
+
+    Returns:
+        True if all files are valid and exist, False otherwise.
+    """
+
     for exp in experiment_queue:
         name = exp["name"]
         exp_path = f"experiments/{name}"
@@ -27,8 +39,21 @@ def validate_experiments(experiment_queue):
     print(f"Validation Passed")
     return True
 
-# Helper function that checks whether a file exists at specified path. It takes the key, file data for that key and also name of the 
+
 def check_files(json_key, data, name):
+    """
+    Helper function that checks whether a file exists at the path specified in a given key.
+
+    Args:
+        json_key: Key in the experiment file to inspect (e.g., 'topologies').
+        data: Parsed JSON contents of the experiment file.
+        name: Name of the experiment (used for error messages).
+
+    Raises:
+        ValueError: If an entry under the key is missing 'pathToFile'.
+        FileNotFoundError: If the file path specified doesn't exist.
+    """
+
     if json_key not in data:
         return 
     for entry in data[json_key]:
@@ -38,8 +63,18 @@ def check_files(json_key, data, name):
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"File not found for {json_key} in '{name}': {file_path}")
 
-# Helper function that recursively traverses the directory provided and collects all the parquet files
+
 def get_parquet_files_recursive(root_dir):
+    """
+    Recursively traverses a directory and collects all .parquet files.
+
+    Args:
+        root_dir: Directory to scan.
+
+    Returns:
+        Dictionary mapping relative paths to absolute file paths.
+    """
+
     parquet_files = {}
     for dirpath, _, filenames in os.walk(root_dir):
         for filename in filenames:
@@ -48,8 +83,21 @@ def get_parquet_files_recursive(root_dir):
                 parquet_files[relative_path] = os.path.join(dirpath, filename)
     return parquet_files
 
-# Helper function that checks whether the experiment outputs match
+
 def compare_experiment_outputs(orig_path, repr_path):
+    """
+    Compares whether the experiment output files from two directories match.
+
+    Checks for file presence and compares data content using Pandas.
+
+    Args:
+        orig_path: Path to original experiment output folder.
+        repr_path: Path to reproduced experiment output folder.
+
+    Returns:
+        True if files exist and dataframes match, False otherwise.
+    """
+
     try:
         orig_files = get_parquet_files_recursive(orig_path)
         repr_files = get_parquet_files_recursive(repr_path)
@@ -70,6 +118,16 @@ def compare_experiment_outputs(orig_path, repr_path):
 
 # Function that goes over all of the experiment and its reproduced output pairs and checks whether they match
 def compare_all_experiments_outputs():
+    """
+    Checks whether all experiment and reproduced output pairs match.
+
+    Scans the output directory for folders with names matching:
+    - Original: any name
+    - Reproduced: starts with 'repr_'
+
+    Compares matching pairs and prints mismatch or success result.
+    """
+    
     dirs = [direc for direc in os.listdir("output") if os.path.isdir(f"output/{direc}")]
 
     experiment_pairs = []

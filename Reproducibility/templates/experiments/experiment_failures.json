@@ -8,6 +8,7 @@
   "workloads": [
     {
       "pathToFile": "workload_traces/example_workload",
+      
       "type": "ComputeWorkload"
     }
   ],

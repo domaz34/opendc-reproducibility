@@ -3,8 +3,15 @@ import os
 import json
 import datetime as dt
 
-# Update this section if capsule version or OpenDC version changes
+
 def generate_metadata_section():
+    """
+    Returns a list of lines containing capsule metadata.
+
+    This includes generation date, OpenDC version, and tool version.
+    Update this if OpenDC or capsule format changes.
+    """
+
     return [
         "## Capsule Metadata",
         f"- **Created on**: {dt.datetime.now().strftime('%Y-%m-%d')}",
@@ -14,6 +21,19 @@ def generate_metadata_section():
     ]
 
 def generate_readme_from_queue(experiment_queue, stats, output_path="README.md", experiments_dir="experiments"):
+    """
+    Generates a README.md file summarizing the experiments and system context.
+
+    Args:
+        experiment_queue: List of experiment dicts, each with a `name` key.
+        stats: Dictionary with experiment durations and system info.
+        output_path: Path where the README should be saved.
+        experiments_dir: Directory where experiment JSON files are located.
+
+    Returns:
+        Path to the generated README file.
+    """
+
     readme_lines = [
         "# Reproducibility Capsule",
         "",
@@ -98,8 +118,6 @@ def generate_readme_from_queue(experiment_queue, stats, output_path="README.md",
         "- `OpenDCExperimentRunner/`: Compiled experiment runner.",
         ""
     ]
-
-
 
     try:
         with open(output_path, "w") as f:

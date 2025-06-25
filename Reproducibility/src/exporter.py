@@ -5,6 +5,21 @@ import json
 from src.summary_generator import *
 
 def collect_experiment_files(selections_list, experiments_dir="experiments"):
+
+    """
+    Gather all necessary files based on the queued experiments.
+
+    Looks through the experiment JSONs and collects paths to all referenced
+    topology, workload, failure, and carbon trace files.
+
+    Args:
+        selections_list: List of queued experiment selection dictionaries.
+        experiments_dir: Directory where experiment files are stored.
+
+    Returns:
+        A set of file paths required to reproduce the experiments.
+    """
+
     required_files = set()
 
     for selection in selections_list:
@@ -53,6 +68,14 @@ def collect_experiment_files(selections_list, experiments_dir="experiments"):
     return required_files
 
 def recursive_zip(file_path, zipf):
+    """
+    Recursively add all files within a directory to the zip archive.
+
+    Args:
+        file_path: The root directory to compress.
+        zipf: The zipfile handle to write into.
+    """
+
     for root, _, files in os.walk(file_path):
         for file in files:
             full_path = os.path.join(root, file)
@@ -60,6 +83,18 @@ def recursive_zip(file_path, zipf):
             zipf.write(full_path, arcname=rel_path)
 
 def create_reproducibility_zip(queue, readme_path="README.md", output_name="reproducibility_capsule.zip"):
+
+    """
+    Create a reproducibility zip archive containing only required files.
+
+    Includes selected experiments, referenced inputs, code, README, and main notebook.
+
+    Args:
+        queue: The list of experiment selections.
+        readme_path: Path to the README file.
+        output_name: Output zip filename.
+    """
+
     files_to_zip = collect_experiment_files(queue)
     
 
@@ -86,9 +121,18 @@ def create_reproducibility_zip(queue, readme_path="README.md", output_name="repr
     
 def quick_export_all_zip(output_name="reproducibility_capsule.zip"):
 
+    """
+    Export a zip with all relevant directories and files for fast packaging.
+
+    Includes experiments, topologies, traces, output, source code, README, and notebook.
+
+    Args:
+        output_name: Name of the resulting zip archive.
+    """
+
     roots = [
         "experiments", "README.md",
-        "topologies", "workload_traces", "failure_traces",
+        "topologies", "workload_traces", "failure_traces", "carbon_traces",
         "output", "src", "OpenDCExperimentRunner",
         "main.ipynb"
     ]

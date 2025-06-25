@@ -3,9 +3,22 @@ import json
 
 from src.utils import *
 
-#Builds experiment file entry based on folder and file. Can take original entry in order to keep its type. Can also take a default type if set
-def build_entry(folder, file, original_entry=None, default_type=None):
 
+def build_entry(folder, file, original_entry=None, default_type=None):
+    
+    """
+    Build a dictionary representing a file entry in the experiment configuration.
+
+    Args:
+        folder: Folder path prefix for the file.
+        file: File name.
+        original_entry: Existing entry to preserve the type field.
+        default_type: Default type to assign if not in original.
+
+    Returns:
+        A dictionary with 'pathToFile' and possibly 'type'.
+    """
+     
     entry = {"pathToFile": f"{folder}/{file}"}
 
     if original_entry and "type" in original_entry:
@@ -15,8 +28,6 @@ def build_entry(folder, file, original_entry=None, default_type=None):
     return entry
 
 
-# Updates values of experiment by taking list of topologies, list of workloads, list of failures,  list of prefab_types, single instance of checkpoint values, a list of export model values and a list of files to export. 
-# It will create different experiment file for different export model values, if list lengths missmatch then it will just ignore the missing part
 def update_experiment_values(
     experiment_template=None,
     topologies=None,
@@ -31,8 +42,25 @@ def update_experiment_values(
     files_to_export=None,
     name=None,
     seeds=None,
-    runs=None
+    runs=None,
+    max_failures=None,
+    output_folder=None
 ):
+    """
+    Generate and save an experiment configuration file.
+
+    This function loads a base experiment template (if provided), overrides or populates its fields with 
+    user-defined inputs, and then writes the updated configuration to a new file.
+
+    Supports batch generation using seed, run, interval, and frequency lists.
+
+    Args:
+        Can tell from the names, all optional.
+
+    Returns:
+        The generated filename.
+    """
+
     if experiment_template:
         try:
             with open(f"templates/experiments/{experiment_template}", 'r') as f:
@@ -117,6 +145,8 @@ def update_experiment_values(
                 "checkpointIntervalScaling": float(checkpoint_scaling)
             }]
 
+        if max_failures is not None:
+            experiment["maxNumFailures"] = [int(mf) for mf in max_failures]
 
         interval = get_val(export_intervals, i)
         freq = get_val(print_frequencies, i)
@@ -140,6 +170,8 @@ def update_experiment_values(
             if export_entry:
                 experiment["exportModels"] = [export_entry]
         
+        if output_folder is not None:
+            experiment["outputFolder"] = output_folder
 
         filename = f"{full_name}.json" if not full_name.endswith(".json") else full_name
 
@@ -149,7 +181,13 @@ def update_experiment_values(
 
 
 def save_experiment(experiment, new_name):
+    """
+    Save a single experiment configuration to disk.
 
+    Args:
+        experiment: The experiment JSON content.
+        new_name: Filename to save as.
+    """
     new_path = f"experiments/{new_name}"
     try:
         with open(new_path, 'w') as f:
