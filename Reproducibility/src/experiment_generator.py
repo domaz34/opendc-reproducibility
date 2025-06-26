@@ -19,14 +19,14 @@ def build_entry(folder, file, original_entry=None, default_type=None):
         A dictionary with 'pathToFile' and possibly 'type'.
     """
      
-    entry = {"pathToFile": f"{folder}/{file}"}
+    path = os.path.normpath(f"{folder}/{file}").replace("\\", "/")
+    entry = {"pathToFile": path}
 
     if original_entry and "type" in original_entry:
         entry["type"] = original_entry["type"]
     elif default_type:
         entry["type"] = default_type
     return entry
-
 
 def update_experiment_values(
     experiment_template=None,
@@ -44,21 +44,21 @@ def update_experiment_values(
     seeds=None,
     runs=None,
     max_failures=None,
-    output_folder=None
+    output_folder=None,
+    group_by_topology_folder=False
 ):
+    
     """
-    Generate and save an experiment configuration file.
+    Generate and save one or more OpenDC experiment configuration files.
 
-    This function loads a base experiment template (if provided), overrides or populates its fields with 
-    user-defined inputs, and then writes the updated configuration to a new file.
-
-    Supports batch generation using seed, run, interval, and frequency lists.
+    This function supports both flat and grouped experiment creation. If grouping is enabled,
+    topologies are grouped by their folder structure (e.g. borg/800/0_1000), and one experiment
+    is generated per group. Otherwise, a single configuration is created for the provided set.
 
     Args:
-        Can tell from the names, all optional.
-
+        Based on the names
     Returns:
-        The generated filename.
+        List of experiment selections (metadata for queueing/exporting).
     """
 
     if experiment_template:
@@ -67,11 +67,99 @@ def update_experiment_values(
                 base_experiment = json.load(f)
         except Exception as e:
             print(f"Failed to load base experiment: {e}")
-            return
+            return []
     else:
         base_experiment = {}
-    
+
     base_name = name or base_experiment.get("name", "custom_experiment")
+    all_selections = []
+
+    if group_by_topology_folder and topologies:
+        grouped = {}
+        for topo in topologies:
+            key = get_topology_group_prefix(topo)
+            grouped.setdefault(key, []).append(topo)
+
+        for group_key, group_topos in grouped.items():
+            group_name = f"{group_key}/{base_name}"
+            all_selections.extend(
+                generate_experiments(
+                    name=group_name,
+                    base=base_experiment,
+                    topologies=group_topos,
+                    workloads=workloads,
+                    failures=failures,
+                    prefab_types=prefab_types,
+                    checkpoint_interval=checkpoint_interval,
+                    checkpoint_duration=checkpoint_duration,
+                    checkpoint_scaling=checkpoint_scaling,
+                    export_intervals=export_intervals,
+                    print_frequencies=print_frequencies,
+                    files_to_export=files_to_export,
+                    seeds=seeds,
+                    runs=runs,
+                    max_failures=max_failures,
+                    output_folder=output_folder
+                )
+            )
+    else:
+        all_selections.extend(
+            generate_experiments(
+                name=base_name,
+                base=base_experiment,
+                topologies=topologies,
+                workloads=workloads,
+                failures=failures,
+                prefab_types=prefab_types,
+                checkpoint_interval=checkpoint_interval,
+                checkpoint_duration=checkpoint_duration,
+                checkpoint_scaling=checkpoint_scaling,
+                export_intervals=export_intervals,
+                print_frequencies=print_frequencies,
+                files_to_export=files_to_export,
+                seeds=seeds,
+                runs=runs,
+                max_failures=max_failures,
+                output_folder=output_folder
+            )
+        )
+
+    return all_selections
+    
+
+def generate_experiments(
+    name,
+    base,
+    topologies,
+    workloads,
+    failures,
+    prefab_types,
+    checkpoint_interval,
+    checkpoint_duration,
+    checkpoint_scaling,
+    export_intervals,
+    print_frequencies,
+    files_to_export,
+    seeds,
+    runs,
+    max_failures,
+    output_folder
+):
+    """
+    Generate experiment JSON files for a specific group or flat configuration.
+
+    This helper function creates one or more experiment variants based on seed/run combinations
+    and writes them to disk under 'experiments/'. It uses a base experiment config and overrides
+    its fields with the provided parameters.
+
+    Args:
+        Based on the names
+
+    Returns:
+        List of selections (experiment metadata for tracking/queueing).
+    """
+    selections_list = []
+    base_experiment = json.loads(json.dumps(base))
 
     # Topologies: no default type  
     if topologies is not None:
@@ -111,7 +199,7 @@ def update_experiment_values(
         seed = get_val(seeds, i)
         run = get_val(runs, i)
 
-        full_name = f"{base_name}"
+        full_name = f"{name}"
         if seed is not None:
             full_name += f"_s{seed}"
             experiment["initialSeed"] = int(seed)
@@ -145,7 +233,7 @@ def update_experiment_values(
                 "checkpointIntervalScaling": float(checkpoint_scaling)
             }]
 
-        if max_failures is not None:
+        if max_failures:
             experiment["maxNumFailures"] = [int(mf) for mf in max_failures]
 
         interval = get_val(export_intervals, i)
@@ -177,7 +265,14 @@ def update_experiment_values(
 
         save_experiment(experiment, filename)
 
-        return filename
+        selections_list.append({
+            "name": filename,
+            "topology": topologies,
+            "workload": workloads,
+            "failures": failures
+        })
+    
+    return selections_list
 
 
 def save_experiment(experiment, new_name):
@@ -186,9 +281,11 @@ def save_experiment(experiment, new_name):
 
     Args:
         experiment: The experiment JSON content.
-        new_name: Filename to save as.
+        new_name: Filename to save as (it can include / characters to have folder structure).
     """
-    new_path = f"experiments/{new_name}"
+    new_path = os.path.join("experiments", new_name)
+    os.makedirs(os.path.dirname(new_path), exist_ok=True)
+
     try:
         with open(new_path, 'w') as f:
             json.dump(experiment, f, indent=4)

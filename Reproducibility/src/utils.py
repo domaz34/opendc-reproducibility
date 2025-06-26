@@ -3,6 +3,13 @@ import platform
 import psutil
 import socket
 
+def get_topology_group_prefix(path):
+    """
+    Extract the directory structure from a topology path (e.g. borg/800/0_1000/DE.json → borg/800/0_1000).
+    This is used to group similar topologies into one experiment.
+    """
+    return os.path.dirname(path.replace("\\", "/").replace("topologies/", "")).strip() or "Ungrouped"
+
 
 def clean_selection(selections, full_options):
     """
@@ -157,3 +164,7 @@ def get_system_info():
     }
 
     return cpu_info
+
+def filter_files_by_keyword(files, keyword):
+    keyword = keyword.strip().lower()
+    return [f for f in files if keyword in f.lower()] if keyword else files

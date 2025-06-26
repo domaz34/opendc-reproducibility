@@ -53,7 +53,7 @@ def generate_readme_from_queue(experiment_queue, stats, output_path="README.md",
         try:
             with open(exp_path) as f:
                 data = json.load(f)
-        except Exception as e:
+        except Exception:
             readme_lines.append("")
             continue
 
@@ -62,12 +62,25 @@ def generate_readme_from_queue(experiment_queue, stats, output_path="README.md",
         failures = [f["pathToFile"] for f in data.get("failureModels", [])]
 
         if topologies:
-            readme_lines.append("- **Topologies**: " + ", ".join(topologies))
+            readme_lines.append(f"- **Topologies**: {len(topologies)} files")
+            readme_lines.append("<details><summary>Show Topology List</summary>\n")
+            readme_lines += [f"{t}" for t in topologies]
+            readme_lines.append("</details>\n")
+
         if workloads:
-            readme_lines.append("- **Workloads**: " + ", ".join(workloads))
+            readme_lines.append(f"- **Workloads**: {len(workloads)} files")
+            readme_lines.append("<details><summary>Show Workload List</summary>\n")
+            readme_lines += [f"{w}" for w in workloads]
+            readme_lines.append("</details>\n")
+
         if failures:
-            readme_lines.append("- **Failures**: " + ", ".join(failures) if failures else "- **Failures**: []")
+            readme_lines.append(f"- **Failures**: {len(failures)} files")
+            readme_lines.append("<details><summary>Show Failure List</summary>\n")
+            readme_lines += [f"{f}" for f in failures]
+            readme_lines.append("</details>\n")
+
         readme_lines.append("")
+
 
 
     readme_lines += [
@@ -105,17 +118,6 @@ def generate_readme_from_queue(experiment_queue, stats, output_path="README.md",
         "4. Outputs will appear in the `output/` directory.",
         "",
         "You can also customize and build on top of the experiments provided using the same notebook and following the instructions.",
-        "",
-        "## Folder Structure",
-        "",
-        "- `experiments/`: Contains the experiment JSON files.",
-        "- `topologies/`: Topology definitions.",
-        "- `workload_traces/`: Workload files.",
-        "- `failure_traces/`: Failure definitions.",
-        "- `output/`: Simulation outputs (auto-created).",
-        "- `main.ipynb`: Notebook interface to run and manage experiments.",
-        "- `src/`: Custom utility code.",
-        "- `OpenDCExperimentRunner/`: Compiled experiment runner.",
         ""
     ]
 

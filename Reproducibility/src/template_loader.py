@@ -1,6 +1,7 @@
 import json
 import os
 
+# File having utilities used for experiment handling
 def load_experiment_template(path):
     try:
         with open(path) as f:

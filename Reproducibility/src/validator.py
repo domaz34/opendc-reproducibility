@@ -116,7 +116,7 @@ def compare_experiment_outputs(orig_path, repr_path):
     except Exception as e:
         return False
 
-# Function that goes over all of the experiment and its reproduced output pairs and checks whether they match
+
 def compare_all_experiments_outputs():
     """
     Checks whether all experiment and reproduced output pairs match.
