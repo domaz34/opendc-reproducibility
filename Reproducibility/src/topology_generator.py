@@ -2,6 +2,74 @@ from src.utils import *
 from itertools import product
 import json
 
+def generate_with_named_pairs(new_topology, pairs, inputs, other_params):
+    """
+    Generate and save topologies using zipped parameter pairs and Cartesian product with remaining parameters.
+    It treats one pair as one distinct variable that is later combined with other variables using product.
+
+    Args:
+        new_topology: Base topology structure to clone and modify.
+        pairs: List of parameter name pairs to zip together (e.g., [('carbon', 'starting_CI')]).
+        inputs: Dictionary mapping parameter names to value lists.
+        other_params : Constant or additional metadata fields passed to `build_one_topology`.
+    """
+
+    if not pairs:
+        return
+
+    zipped_groups = []
+    zipped_keys = set()
+
+    for param1, param2 in pairs:
+        if param1 not in inputs or param2 not in inputs:
+            print(f"[Skipped] Pair ({param1}, {param2}) not found in inputs.")
+            continue
+        list1, list2 = inputs[param1], inputs[param2]
+        if len(list1) != len(list2):
+            print(f"[Skipped] Pair ({param1}, {param2}) has unequal lengths.")
+            continue
+        zipped_groups.append(list(zip(list1, list2)))
+        zipped_keys.update([param1, param2])
+
+    zipped_product = list(product(*zipped_groups)) 
+
+    product_inputs = {k: v for k, v in inputs.items() if k not in zipped_keys and v}
+    product_keys = list(product_inputs.keys())
+    product_values = [product_inputs[k] for k in product_keys]
+
+    for zipped_combo in zipped_product:
+        base_args = {}
+        for (k1, k2), (v1, v2) in zip(pairs, zipped_combo):
+            base_args[k1] = v1
+            base_args[k2] = v2
+
+        for combo in product(*product_values) if product_values else [()]:
+            args = base_args.copy()
+            args.update(dict(zip(product_keys, combo)))
+
+            topology_copy = json.loads(json.dumps(new_topology))
+            build_one_topology(
+                new_topology=topology_copy,
+                core_count=args.get("core_count"),
+                core_speed=args.get("core_speed"),
+                memory_size=args.get("memory_size"),
+                carbon=args.get("carbon"),
+                NoH=args.get("NoH"),
+                battery_capacity=args.get("battery_capacity"),
+                starting_CI=args.get("starting_CI"),
+                charging_speed=args.get("charging_speed"),
+                expected_lifetime=args.get("expected_lifetime"),
+                include_battery=other_params.get("include_battery"),
+                name=other_params.get("name"),
+                power_model_type=other_params.get("power_model_type"),
+                power_model_idle=other_params.get("power_model_idle"),
+                power_model_max=other_params.get("power_model_max"),
+                power_model_power=other_params.get("power_model_power"),
+                add_power_model=other_params.get("add_power_model"),
+                prepend=other_params.get("prepend")
+            )
+
+
 
 def update_topology_values(
     topo_template_path=None,
@@ -22,7 +90,9 @@ def update_topology_values(
     power_model_max=None,
     power_model_power=None,
     add_power_model=False,
-    generate_combinations=False
+    generate_combinations=False,
+    pairs=None,
+    prepend=False
 ):
     """
     Generate and save new topology files based on provided variations.
@@ -77,41 +147,59 @@ def update_topology_values(
             "memory_size": memory_size_list
         }
 
-        active = {key: value for key, value in inputs.items() if value}
-
-        keys, lists = zip(*active.items())
-
-        seen = set()
-        for combo in product(*lists):
-            if None in combo:
-                continue
-            if combo in seen:
-                continue
-            seen.add(combo)
-        
-            values = dict(zip(keys, combo))
-
-            new_topology = json.loads(json.dumps(original_topology))
-            build_one_topology(
-                new_topology=new_topology,
-                core_count=values.get("core_count"),
-                core_speed=values.get("core_speed"),
-                memory_size=values.get("memory_size"),
-                carbon=values.get("carbon"),
-                NoH=values.get("NoH"),
-                battery_capacity=values.get("battery_capacity"),
-                starting_CI=values.get("starting_CI"),
-                charging_speed=values.get("charging_speed"),
-                expected_lifetime=values.get("expected_lifetime"),
-                include_battery=include_battery,
-                name=name,
-                power_model_type=power_model_type,
-                power_model_idle=power_model_idle,
-                power_model_max=power_model_max,
-                power_model_power=power_model_power,
-                add_power_model=add_power_model
+        if pairs:
+            generate_with_named_pairs(
+                new_topology=original_topology,
+                pairs=pairs,
+                inputs=inputs,
+                other_params={
+                    "include_battery": include_battery,
+                    "name": name,
+                    "power_model_type": power_model_type,
+                    "power_model_idle": power_model_idle,
+                    "power_model_max": power_model_max,
+                    "power_model_power": power_model_power,
+                    "add_power_model": add_power_model,
+                    "prepend": prepend
+                }
             )
 
+        else:
+            active = {key: value for key, value in inputs.items() if value}
+
+            keys, lists = zip(*active.items())
+
+            seen = set()
+            for combo in product(*lists):
+                if None in combo:
+                    continue
+                if combo in seen:
+                    continue
+                seen.add(combo)
+            
+                values = dict(zip(keys, combo))
+
+                new_topology = json.loads(json.dumps(original_topology))
+                build_one_topology(
+                    new_topology=new_topology,
+                    core_count=values.get("core_count"),
+                    core_speed=values.get("core_speed"),
+                    memory_size=values.get("memory_size"),
+                    carbon=values.get("carbon"),
+                    NoH=values.get("NoH"),
+                    battery_capacity=values.get("battery_capacity"),
+                    starting_CI=values.get("starting_CI"),
+                    charging_speed=values.get("charging_speed"),
+                    expected_lifetime=values.get("expected_lifetime"),
+                    include_battery=include_battery,
+                    name=name,
+                    power_model_type=power_model_type,
+                    power_model_idle=power_model_idle,
+                    power_model_max=power_model_max,
+                    power_model_power=power_model_power,
+                    add_power_model=add_power_model,
+                    prepend=prepend
+                )
     else:
         max_len = max(
             len(core_count_list), len(core_speed_list), len(memory_size_list),
@@ -149,7 +237,8 @@ def update_topology_values(
                 power_model_idle=power_model_idle,
                 power_model_max=power_model_max,
                 power_model_power=power_model_power,
-                add_power_model=add_power_model
+                add_power_model=add_power_model,
+                prepend=prepend
             )
 
         
@@ -159,7 +248,7 @@ def build_one_topology(new_topology,
                         battery_capacity, starting_CI, charging_speed, expected_lifetime,
                         include_battery, name,
                         power_model_type, power_model_idle,
-                        power_model_max, power_model_power, add_power_model):
+                        power_model_max, power_model_power, add_power_model, prepend):
     
     """
     Populate and save a single topology configuration based on inputs.
@@ -176,20 +265,33 @@ def build_one_topology(new_topology,
                     "carbonTracePath": f"carbon_traces/{carbon}"
                     }
                 
-                if include_battery and battery_capacity is not None and starting_CI is not None and float(starting_CI) > 0:
-                    cluster["battery"] = {
-                        "capacity": int(battery_capacity),
-                        "chargingSpeed": int(charging_speed) * int(battery_capacity) if charging_speed else 0,
-                        "embodiedCarbon": 100 * int(battery_capacity),
-                        "expectedLifetime": int(expected_lifetime) if int(expected_lifetime) is not None else 10
-                    }
+                if include_battery:
+                    bat = cluster.get("battery")
+                    if bat:
+                        if battery_capacity is not None:
+                            bat["capacity"] = int(battery_capacity)
+                        if charging_speed is not None:
+                            bat["chargingSpeed"] = int(charging_speed) * bat.get("capacity", 0)
+                        if expected_lifetime is not None:
+                            bat["expectedLifetime"] = int(expected_lifetime)
+
+                    elif battery_capacity is not None and starting_CI is not None and float(starting_CI) > 0:
+                        cluster["battery"] = {
+                            "capacity": int(battery_capacity),
+                            "chargingSpeed": int(charging_speed) * int(battery_capacity) if charging_speed else 0,
+                            "embodiedCarbon": 100 * int(battery_capacity),
+                            "expectedLifetime": int(expected_lifetime) if int(expected_lifetime) is not None else 10
+                        }
 
                     if "batteryPolicy" not in cluster["battery"]:
-                        cluster["battery"]["batteryPolicy"] = {
-                            "type": "runningMeanPlus",
-                            "startingThreshold": float(starting_CI),
-                            "windowSize": 168
-                        }
+                            cluster["battery"]["batteryPolicy"] = {
+                                "type": "runningMeanPlus",
+                                "startingThreshold": float(starting_CI),
+                                "windowSize": 168
+                            }
+                        
+                    elif starting_CI is not None:
+                        cluster["battery"]["batteryPolicy"]["startingThreshold"] = float(starting_CI)
 
                 for host in cluster.get("hosts", []):
                     if core_count is not None:
@@ -223,7 +325,8 @@ def build_one_topology(new_topology,
                                     core_count = core_count,
                                     core_speed = core_speed,
                                     memory_size = memory_size,
-                                    name = name
+                                    name = name,
+                                    prepend=prepend
                                 )
                                                 
 
@@ -240,7 +343,8 @@ def build_topology_path(
     core_count,
     core_speed,
     memory_size,
-    name
+    name,
+    prepend=False
 ):
     
     """
@@ -256,6 +360,8 @@ def build_topology_path(
 
     # Folder structure
     path_parts = []
+    if prepend:
+        path_parts.append(name)
     if NoH is not None:
         path_parts.append(f"hosts{NoH}")
     if include_battery and battery_capacity is not None and charging_speed is not None:
@@ -322,4 +428,4 @@ def save_topology(topology: dict, rel_path: str):
     os.makedirs(os.path.dirname(full_path), exist_ok=True)  
     with open(full_path, "w", encoding="utf-8") as f:
         json.dump(topology, f, indent=4)
-    print(f"Generated {rel_path}")
+    #print(f"Generated {rel_path}") disabled for large scale experiments

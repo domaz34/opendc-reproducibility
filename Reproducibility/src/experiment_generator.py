@@ -103,6 +103,7 @@ def update_experiment_values(
                     output_folder=output_folder
                 )
             )
+        print("Generation finished")
     else:
         all_selections.extend(
             generate_experiments(
@@ -124,6 +125,8 @@ def update_experiment_values(
                 output_folder=output_folder
             )
         )
+        
+        print("Generation finished")
 
     return all_selections
     
@@ -290,7 +293,7 @@ def save_experiment(experiment, new_name):
     try:
         with open(new_path, 'w') as f:
             json.dump(experiment, f, indent=4)
-        print(f"Generated {new_name}")
+        # print(f"Generated {new_name}") disabled for large experiment
     except Exception as e:
         print(f"Error saving {new_name}: {e}")
 

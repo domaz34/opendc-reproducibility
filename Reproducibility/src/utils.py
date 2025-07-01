@@ -3,13 +3,19 @@ import platform
 import psutil
 import socket
 
-
 def get_topology_group_prefix(path):
     """
-    Extract the directory structure from a topology path (e.g. borg/800/0_1000/DE.json → borg/800/0_1000).
-    This is used to group similar topologies into one experiment.
+    Extracts the parent directory path (excluding the last folder) from a topology path.
+    E.g., 'topologies/borg/hosts22/0_1000/carbon-AT/borg.json' → 'borg/hosts22/0_1000'
+
+    This is used to group all topology variants (e.g., carbon-XX) under the same config into one experiment.
     """
-    return os.path.dirname(path.replace("\\", "/").replace("topologies/", "")).strip() or "Ungrouped"
+    clean_path = path.replace("\\", "/").replace("topologies/", "").strip()
+    parts = clean_path.split("/")
+    
+    if len(parts) > 1:
+        return "/".join(parts[:-1])
+    return clean_path or "Ungrouped"
 
 
 def clean_selection(selections, full_options):
@@ -136,7 +142,7 @@ def frange(start, end, step):
 
     result = []
     current = start
-    while current <= end:
+    while current < end:
         result.append(round(current, 8))
         current += step
     return result
